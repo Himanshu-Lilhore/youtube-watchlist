@@ -2,6 +2,8 @@ import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL + '/api/items';
 
+axios.defaults.withCredentials = true;
+
 export const fetchItems = async () => {
     const response = await axios.get(API_URL);
     return response.data;
