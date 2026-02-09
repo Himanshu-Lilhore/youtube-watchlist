@@ -12,6 +12,9 @@ const ItemSchema = new mongoose.Schema({
     thumbnail: {
         type: String
     },
+    duration: {
+        type: String
+    },
     tags: {
         type: [String],
         default: []

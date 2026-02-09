@@ -59,6 +59,11 @@ export function SortableItem({ id, item, onDeprioritize, onMarkWatched }) {
                             <div className="text-slate-600 text-2xl sm:text-6xl">▶</div>
                         </div>
                     )}
+                    {item.duration && (
+                        <div className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 bg-black/80 text-white text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-md">
+                            {item.duration}
+                        </div>
+                    )}
                 </a>
 
                 {/* Content Section */}

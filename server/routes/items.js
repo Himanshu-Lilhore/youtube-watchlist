@@ -61,6 +61,27 @@ router.post('/', async (req, res) => {
             title = titleMatch[1].replace(/ - YouTube$/, '').trim();
         }
 
+        // Extract duration (ISO 8601 format: PT1H2M10S)
+        const durationMatch = htmlContent.match(/itemprop="duration" content="([^"]+)"/);
+        let duration = null;
+
+        if (durationMatch && durationMatch[1]) {
+            const isoDuration = durationMatch[1];
+            // Convert PT1H2M10S to HH:MM:SS
+            const matches = isoDuration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+
+            const hours = (matches[1] || '').replace('H', '');
+            const minutes = (matches[2] || '').replace('M', '');
+            const seconds = (matches[3] || '').replace('S', '');
+
+            const parts = [];
+            if (hours) parts.push(hours);
+            parts.push(hours ? (minutes || '0').padStart(2, '0') : (minutes || '0'));
+            parts.push((seconds || '0').padStart(2, '0'));
+
+            duration = parts.join(':');
+        }
+
         // Construct thumbnail URL from video ID
         const thumbnail_url = `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
 
@@ -72,6 +93,7 @@ router.post('/', async (req, res) => {
             url,
             title,
             thumbnail: thumbnail_url,
+            duration, // Save the formatted duration
             tags: tags || [],
             rank: newRank,
             status: 'active'

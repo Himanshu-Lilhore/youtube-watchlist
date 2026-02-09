@@ -109,8 +109,11 @@ export default function Queue() {
                 <div className="inline-block mb-6">
                     <div className="relative">
                         <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 blur-2xl opacity-50"></div>
-                        <h1 className="relative text-5xl sm:text-6xl md:text-7xl font-black bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                        <h1 className="relative text-5xl sm:text-6xl md:text-7xl font-black bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent flex flex-col sm:flex-row items-center gap-2 sm:gap-4 justify-center">
                             WatchQueue
+                            <span className="text-xl sm:text-3xl bg-slate-800 text-slate-300 px-3 py-1 rounded-full border border-slate-700 shadow-lg mt-2 sm:mt-0">
+                                {items.length}
+                            </span>
                         </h1>
                     </div>
                 </div>
