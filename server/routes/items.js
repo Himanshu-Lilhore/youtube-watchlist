@@ -180,4 +180,20 @@ router.patch('/:id/status', async (req, res) => {
     }
 });
 
+// Update item tags
+router.patch('/:id/tags', async (req, res) => {
+    const { tags } = req.body; // Array of strings
+
+    try {
+        const updatedItem = await Item.findByIdAndUpdate(
+            req.params.id,
+            { tags: tags },
+            { new: true }
+        );
+        res.json(updatedItem);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 module.exports = router;

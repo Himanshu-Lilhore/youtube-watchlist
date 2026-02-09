@@ -4,8 +4,9 @@ import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, ArrowDown, CheckCircle2, ExternalLink } from 'lucide-react';
+import { updateItemTags } from '../lib/api';
 
-export function SortableItem({ id, item, onDeprioritize, onMarkWatched }) {
+export function SortableItem({ id, item, onDeprioritize, onMarkWatched, availableTags, onItemUpdate, isDragEnabled = true }) {
     const {
         attributes,
         listeners,
@@ -13,7 +14,9 @@ export function SortableItem({ id, item, onDeprioritize, onMarkWatched }) {
         transform,
         transition,
         isDragging
-    } = useSortable({ id: item._id });
+    } = useSortable({ id: item._id, disabled: !isDragEnabled });
+
+    const [isTagMenuOpen, setIsTagMenuOpen] = React.useState(false);
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -21,22 +24,52 @@ export function SortableItem({ id, item, onDeprioritize, onMarkWatched }) {
         opacity: isDragging ? 0.6 : 1,
     };
 
+    const handleAddTag = async (tagName) => {
+        if (item.tags.includes(tagName)) return;
+        const newTags = [...item.tags, tagName];
+
+        try {
+            const updatedItem = await updateItemTags(item._id, newTags);
+            onItemUpdate(updatedItem);
+            setIsTagMenuOpen(false);
+        } catch (error) {
+            console.error('Failed to add tag', error);
+        }
+    };
+
+    const handleRemoveTag = async (tagName) => {
+        const newTags = item.tags.filter(t => t !== tagName);
+        try {
+            const updatedItem = await updateItemTags(item._id, newTags);
+            // Optimistically update or wait?
+            // onItemUpdate will update the parent state which re-renders this component
+            onItemUpdate(updatedItem);
+        } catch (error) {
+            console.error('Failed to remove tag', error);
+        }
+    };
+
+    // Filter tags that are NOT already on the item
+    const tagsToAdd = availableTags ? availableTags.filter(t => !item.tags.includes(t.name)) : [];
+
     return (
         <div
             ref={setNodeRef}
             style={style}
-            className={`group relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-xl sm:rounded-2xl overflow-hidden border border-slate-700/50 hover:border-blue-500/50 transition-all duration-300 ${isDragging ? 'shadow-2xl scale-105 z-50' : 'hover:shadow-xl'}`}
+            className={`group relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-xl sm:rounded-2xl overflow-visible border border-slate-700/50 hover:border-blue-500/50 transition-all duration-300 ${isDragging ? 'shadow-2xl scale-105 z-50' : 'hover:shadow-xl'} ${isTagMenuOpen ? 'z-40' : ''}`}
         >
             {/* Mobile & Desktop Layout */}
             <div className="flex flex-row items-center gap-2 p-2 sm:p-0">
                 {/* Drag Handle */}
-                <div
-                    {...attributes}
-                    {...listeners}
-                    className="cursor-grab active:cursor-grabbing flex-shrink-0 sm:absolute sm:top-3 sm:left-3 sm:z-10 sm:bg-slate-900/80 sm:backdrop-blur-sm p-1.5 sm:p-2 rounded-lg sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                >
-                    <GripVertical className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
-                </div>
+                {isDragEnabled && (
+                    <div
+                        {...attributes}
+                        {...listeners}
+                        className="cursor-grab active:cursor-grabbing flex-shrink-0 sm:absolute sm:top-3 sm:left-3 sm:z-10 sm:bg-slate-900/80 sm:backdrop-blur-sm p-1.5 sm:p-2 rounded-lg sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                    >
+                        <GripVertical className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
+                    </div>
+                )}
 
                 {/* Thumbnail */}
                 <a
@@ -44,6 +77,7 @@ export function SortableItem({ id, item, onDeprioritize, onMarkWatched }) {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="relative w-24 h-24 sm:w-full sm:h-48 md:w-80 md:h-44 flex-shrink-0 overflow-hidden bg-black rounded-lg sm:rounded-none"
+                // Prevent drag handle from catching clicks on thumbnail if needed, but 'a' tag handles it
                 >
                     {item.thumbnail ? (
                         <>
@@ -84,23 +118,67 @@ export function SortableItem({ id, item, onDeprioritize, onMarkWatched }) {
                         </a>
                     </div>
 
-                    {item.status && (
-                        <div className="sm:hidden mb-2">
-                            <span className="px-2 py-0.5 bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold rounded-full">
-                                {item.status}
-                            </span>
-                        </div>
-                    )}
+                    <div className="flex flex-wrap gap-2 mb-2 sm:mb-4 items-center">
+                        {item.status && (
+                            <div className="sm:hidden">
+                                <span className="px-2 py-0.5 bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold rounded-full">
+                                    {item.status}
+                                </span>
+                            </div>
+                        )}
 
-                    <div className="hidden sm:flex flex-wrap gap-2 mb-4">
                         {item.tags.map((tag, index) => (
                             <span
                                 key={index}
-                                className="px-3 py-1 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold rounded-full"
+                                className="group/tag inline-flex items-center gap-1 px-2 sm:px-3 py-1 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold rounded-full"
                             >
                                 {tag}
+                                <button
+                                    onClick={() => handleRemoveTag(tag)}
+                                    className="hidden group-hover/tag:block hover:text-red-400 focus:outline-none"
+                                >
+                                    ×
+                                </button>
                             </span>
                         ))}
+
+                        {/* Add Tag Button */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setIsTagMenuOpen(!isTagMenuOpen)}
+                                className="px-2 py-1 bg-slate-800 border border-slate-700 hover:border-blue-500 text-slate-400 hover:text-white text-xs rounded-full transition-colors"
+                            >
+                                +
+                            </button>
+
+                            {isTagMenuOpen && (
+                                <>
+                                    <div
+                                        className="fixed inset-0 z-40"
+                                        onClick={() => setIsTagMenuOpen(false)}
+                                    ></div>
+                                    <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
+                                        <div className="p-1">
+                                            {tagsToAdd.length > 0 ? (
+                                                tagsToAdd.map(tag => (
+                                                    <button
+                                                        key={tag._id}
+                                                        onClick={() => handleAddTag(tag.name)}
+                                                        className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-slate-700 rounded-md transition-colors"
+                                                    >
+                                                        {tag.name}
+                                                    </button>
+                                                ))
+                                            ) : (
+                                                <div className="px-3 py-2 text-xs text-slate-500 text-center">
+                                                    No available tags.<br />Create more in Settings.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     </div>
                 </div>
 
