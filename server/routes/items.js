@@ -61,14 +61,14 @@ router.post('/', async (req, res) => {
         }
 
         console.log('Fetching YouTube API for video:', videoId);
-        const API_KEY = process.env.YOUTUBE_API_KEY;
-        const apiResponse = await axios.get(`https://www.googleapis.com/youtube/v3/videos`, {
-            params: {
-                part: 'snippet,contentDetails',
-                id: videoId,
-                key: API_KEY
-            }
-        });
+        const API_KEY = process.env.YOUTUBE_API_KEY?.trim();
+
+        if (!API_KEY) {
+            console.error('CRITICAL: YOUTUBE_API_KEY is not defined in environment variables!');
+        }
+
+        const apiResponse = await axios.get(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${API_KEY}`);
+
 
         if (!apiResponse.data.items || apiResponse.data.items.length === 0) {
             return res.status(404).json({ message: 'Video not found, private, or invalid API key.' });
