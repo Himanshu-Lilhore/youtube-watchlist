@@ -2,18 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-    DndContext,
-    closestCenter,
-    KeyboardSensor,
-    PointerSensor,
-    useSensor,
-    useSensors,
-} from '@dnd-kit/core';
-import {
-    arrayMove,
-    SortableContext,
-    sortableKeyboardCoordinates,
-    verticalListSortingStrategy,
+    arrayMove
 } from '@dnd-kit/sortable';
 import { SortableItem } from './SortableItem';
 import AddItem from './AddItem';
@@ -31,12 +20,7 @@ export default function Queue() {
     const [filters, setFilters] = useState({ duration: 'all', tags: [] });
     const [sortOrder, setSortOrder] = useState('asc');
 
-    const sensors = useSensors(
-        useSensor(PointerSensor),
-        useSensor(KeyboardSensor, {
-            coordinateGetter: sortableKeyboardCoordinates,
-        })
-    );
+
 
     useEffect(() => {
         loadData();
@@ -114,26 +98,46 @@ export default function Queue() {
         setItems((prev) => [...prev, newItem]);
     };
 
-    const handleDragEnd = async (event) => {
-        const { active, over } = event;
-
-        if (active.id !== over.id) {
-            setItems((items) => {
-                const oldIndex = items.findIndex((item) => item._id === active.id);
-                const newIndex = items.findIndex((item) => item._id === over.id);
-
-                const newItems = arrayMove(items, oldIndex, newIndex);
-
-                const rankUpdates = newItems.map((item, index) => ({
-                    _id: item._id,
-                    rank: index + 1
-                }));
-
-                reorderItems(rankUpdates).catch(console.error);
-
-                return newItems;
-            });
+    const updateRanks = async (reorderedItems) => {
+        setItems(reorderedItems);
+        const rankUpdates = reorderedItems.map((item, index) => ({
+            _id: item._id,
+            rank: index + 1
+        }));
+        try {
+            await reorderItems(rankUpdates);
+            // Optionally reload to ensure sync
+        } catch (error) {
+            console.error("Failed to update ranks", error);
         }
+    };
+
+    const handleMoveToTop = (id) => {
+        const index = items.findIndex(i => i._id === id);
+        if (index <= 0) return;
+        const newItems = arrayMove(items, index, 0);
+        updateRanks(newItems);
+    };
+
+    const handleMoveUp = (id) => {
+        const index = items.findIndex(i => i._id === id);
+        if (index <= 0) return;
+        const newItems = arrayMove(items, index, index - 1);
+        updateRanks(newItems);
+    };
+
+    const handleMoveDown = (id) => {
+        const index = items.findIndex(i => i._id === id);
+        if (index === -1 || index === items.length - 1) return;
+        const newItems = arrayMove(items, index, index + 1);
+        updateRanks(newItems);
+    };
+
+    const handleMoveToBottom = (id) => {
+        const index = items.findIndex(i => i._id === id);
+        if (index === -1 || index === items.length - 1) return;
+        const newItems = arrayMove(items, index, items.length - 1);
+        updateRanks(newItems);
     };
 
     const handleDeprioritize = async (id) => {
@@ -176,8 +180,16 @@ export default function Queue() {
     return (
         <div className="min-h-screen px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto">
             {/* Header */}
-            <div className="text-center mb-12 relative">
-                <div className="absolute top-0 right-0 z-50">
+            <div className="text-center mb-2 sm:mb-4 relative flex flex-row justify-between items-center sm:items-start">
+                <div className="inline-block">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 blur-2xl opacity-50 pointer-events-none"></div>
+                        <h1 className="relative text-[43px] sm:text-6xl md:text-7xl font-black bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent flex flex-col sm:flex-row items-center gap-2 sm:gap-4 justify-center">
+                            WatchQueue
+                        </h1>
+                    </div>
+                </div>
+                <div className="block">
                     <button
                         onClick={() => setIsSettingsOpen(true)}
                         className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl transition-colors shadow-lg"
@@ -185,76 +197,58 @@ export default function Queue() {
                         <Settings className="w-6 h-6" />
                     </button>
                 </div>
-
-                <div className="inline-block mb-6">
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 blur-2xl opacity-50 pointer-events-none"></div>
-                        <h1 className="relative text-5xl sm:text-6xl md:text-7xl font-black bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent flex flex-col sm:flex-row items-center gap-2 sm:gap-4 justify-center">
-                            WatchQueue
-                            <span className="text-xl sm:text-3xl bg-slate-800 text-slate-300 px-3 py-1 rounded-full border border-slate-700 shadow-lg mt-2 sm:mt-0">
-                                {items.length}
-                            </span>
-                        </h1>
-                    </div>
-                </div>
-                <p className="text-slate-400 text-lg sm:text-xl max-w-2xl mx-auto">
-                    Curate, organize, and never miss the videos that matter
-                </p>
             </div>
 
             {/* Add Item Form */}
-            <AddItem onAdd={handleAdd} />
+            <AddItem onAdd={handleAdd} total={items.length}/>
 
             {/* Queue List */}
-            {isFiltered ? (
-                // Render list WITHOUT Drag & Drop if filtered
-                <div className="space-y-4">
-                    {filteredItems.map((item) => (
-                        <SortableItem
-                            key={item._id}
-                            id={item._id}
-                            item={item}
-                            onDeprioritize={handleDeprioritize}
-                            onMarkWatched={handleMarkWatched}
-                            availableTags={tags} // Pass global tags
-                            onItemUpdate={handleItemUpdate} // Callback to update item state
-                            isDragEnabled={false}
-                        />
-                    ))}
-                    {filteredItems.length === 0 && (
-                        <div className="text-center py-20 bg-slate-900/50 rounded-3xl border-2 border-dashed border-slate-700">
-                            <h3 className="text-xl font-bold text-slate-400 mb-2">No matches found</h3>
-                            <p className="text-slate-500">Try adjusting your filters</p>
-                        </div>
-                    )}
-                </div>
-            ) : (
-                <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleDragEnd}
-                >
-                    <SortableContext
-                        items={filteredItems.map(item => item._id)}
-                        strategy={verticalListSortingStrategy}
-                    >
-                        <div className="space-y-4">
-                            {filteredItems.map((item) => (
-                                <SortableItem
-                                    key={item._id}
-                                    id={item._id}
-                                    item={item}
-                                    onDeprioritize={handleDeprioritize}
-                                    onMarkWatched={handleMarkWatched}
-                                    availableTags={tags} // Pass global tags
-                                    onItemUpdate={handleItemUpdate}
-                                    isDragEnabled={true}
-                                />
-                            ))}
-                        </div>
-                    </SortableContext>
-                </DndContext>
-            )}
+            <div className="space-y-4">
+                {items.filter(item => {
+                    // Apply filters here instead of separate function to keep it simple with the new logic
+                    if (filters.duration !== 'all') {
+                        if (!item.duration) return false;
+                        const parts = item.duration.split(':').map(Number);
+                        let durationSteps = 0;
+                        if (parts.length === 3) durationSteps = parts[0] * 60 + parts[1];
+                        else durationSteps = parts[0];
+
+                        if (filters.duration === 'short' && durationSteps >= 5) return false;
+                        if (filters.duration === 'medium' && (durationSteps < 5 || durationSteps > 20)) return false;
+                        if (filters.duration === 'long' && durationSteps <= 20) return false;
+                    }
+                    if (filters.tags.length > 0) {
+                        if (!item.tags.some(tag => filters.tags.includes(tag))) return false;
+                    }
+                    return true;
+                }).sort((a, b) => {
+                    if (sortOrder === 'desc') return b.rank - a.rank;
+                    return a.rank - b.rank; // Default by rank
+                }).map((item, index, array) => (
+                    <SortableItem
+                        key={item._id}
+                        id={item._id}
+                        item={item}
+                        onDeprioritize={handleDeprioritize}
+                        onMarkWatched={handleMarkWatched}
+                        availableTags={tags}
+                        onItemUpdate={handleItemUpdate}
+                        // Reordering Props
+                        onMoveToTop={() => handleMoveToTop(item._id)}
+                        onMoveUp={() => handleMoveUp(item._id)}
+                        onMoveDown={() => handleMoveDown(item._id)}
+                        onMoveToBottom={() => handleMoveToBottom(item._id)}
+                        isFirst={index === 0}
+                        isLast={index === array.length - 1}
+                    />
+                ))}
+                {items.length === 0 && !loading && (
+                    <div className="text-center py-20 bg-slate-900/50 rounded-3xl border-2 border-dashed border-slate-700">
+                        <h3 className="text-xl font-bold text-slate-400 mb-2">No matches found</h3>
+                        <p className="text-slate-500">Try adjusting your filters</p>
+                    </div>
+                )}
+            </div>
 
             {/* Empty State (Only if truly empty, not valid for filtered 0 state) */}
             {items.length === 0 && (
