@@ -1,0 +1,1 @@
+Making a custom youtube watchlater playlist manager. Included frontend (nextjs, tailwind), backend (express, mongodb) and browser extension (vanilla js).

@@ -1,6 +1,7 @@
 
 // Configuration
-const API_URL = 'http://localhost:5000/api/items';
+const BACKEND_URL = "https://youtube-watchlist-server.vercel.app";
+const API_URL = `${BACKEND_URL}/api/items`;
 
 // SVG Icons
 const PLUS_ICON = `
