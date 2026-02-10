@@ -26,6 +26,7 @@ function createButton() {
     button.className = 'yt-spec-button-shape-next yt-spec-button-shape-next--tonal yt-spec-button-shape-next--mono yt-spec-button-shape-next--size-m';
     button.setAttribute('aria-label', 'Add to Watchlist');
     button.style.marginRight = '8px';
+    button.style.marginTop = '8px';
     button.style.display = 'flex';
     button.style.alignItems = 'center';
     button.style.justifyContent = 'center';

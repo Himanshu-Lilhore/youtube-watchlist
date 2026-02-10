@@ -9,8 +9,6 @@ export function SortableItem({ id, item, onDeprioritize, onMarkWatched, availabl
 
     const [isTagMenuOpen, setIsTagMenuOpen] = React.useState(false);
 
-
-
     const handleAddTag = async (tagName) => {
         if (item.tags.includes(tagName)) return;
         const newTags = [...item.tags, tagName];

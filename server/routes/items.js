@@ -17,11 +17,32 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
     const { url, tags } = req.body;
 
+    // Helper to parse ISO 8601 duration (PT1H2M10S) to HH:MM:SS or MM:SS
+    const parseDuration = (isoDuration) => {
+        const matches = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+        if (!matches) return '0:00';
+
+        const hours = matches[1] ? parseInt(matches[1]) : 0;
+        const minutes = matches[2] ? parseInt(matches[2]) : 0;
+        const seconds = matches[3] ? parseInt(matches[3]) : 0;
+
+        const parts = [];
+        if (hours > 0) {
+            parts.push(hours.toString());
+            parts.push(minutes.toString().padStart(2, '0'));
+        } else {
+            parts.push(minutes.toString());
+        }
+        parts.push(seconds.toString().padStart(2, '0'));
+
+        return parts.join(':');
+    };
+
     try {
         // Extract YouTube video ID from various URL formats
         const extractVideoId = (url) => {
             const patterns = [
-                /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+                /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&\n?#]+)/,
                 /youtube\.com\/v\/([^&\n?#]+)/
             ];
 
@@ -39,51 +60,24 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ message: 'Invalid YouTube URL format.' });
         }
 
-        // Fetch the YouTube page to extract metadata
-        console.log('Fetching YouTube page for video:', videoId);
-        const pageResponse = await axios.get(`https://www.youtube.com/watch?v=${videoId}`, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        console.log('Fetching YouTube API for video:', videoId);
+        const API_KEY = process.env.YOUTUBE_API_KEY;
+        const apiResponse = await axios.get(`https://www.googleapis.com/youtube/v3/videos`, {
+            params: {
+                part: 'snippet,contentDetails',
+                id: videoId,
+                key: API_KEY
             }
         });
 
-        const htmlContent = pageResponse.data;
-
-        // Extract title from various possible locations in the HTML
-        let title = 'YouTube Video';
-
-        // Try to get title from meta tags
-        const titleMatch = htmlContent.match(/<meta\s+name="title"\s+content="([^"]+)"/i) ||
-            htmlContent.match(/<meta\s+property="og:title"\s+content="([^"]+)"/i) ||
-            htmlContent.match(/<title>([^<]+)<\/title>/i);
-
-        if (titleMatch && titleMatch[1]) {
-            title = titleMatch[1].replace(/ - YouTube$/, '').trim();
+        if (!apiResponse.data.items || apiResponse.data.items.length === 0) {
+            return res.status(404).json({ message: 'Video not found, private, or invalid API key.' });
         }
 
-        // Extract duration (ISO 8601 format: PT1H2M10S)
-        const durationMatch = htmlContent.match(/itemprop="duration" content="([^"]+)"/);
-        let duration = null;
-
-        if (durationMatch && durationMatch[1]) {
-            const isoDuration = durationMatch[1];
-            // Convert PT1H2M10S to HH:MM:SS
-            const matches = isoDuration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
-
-            const hours = (matches[1] || '').replace('H', '');
-            const minutes = (matches[2] || '').replace('M', '');
-            const seconds = (matches[3] || '').replace('S', '');
-
-            const parts = [];
-            if (hours) parts.push(hours);
-            parts.push(hours ? (minutes || '0').padStart(2, '0') : (minutes || '0'));
-            parts.push((seconds || '0').padStart(2, '0'));
-
-            duration = parts.join(':');
-        }
-
-        // Construct thumbnail URL from video ID
-        const thumbnail_url = `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
+        const videoData = apiResponse.data.items[0];
+        const title = videoData.snippet.title;
+        const thumbnail = videoData.snippet.thumbnails.high?.url || videoData.snippet.thumbnails.medium?.url || videoData.snippet.thumbnails.default?.url;
+        const duration = parseDuration(videoData.contentDetails.duration);
 
         // Calculate new rank (add to bottom)
         const lastItem = await Item.findOne().sort({ rank: -1 });
@@ -92,8 +86,8 @@ router.post('/', async (req, res) => {
         const newItem = new Item({
             url,
             title,
-            thumbnail: thumbnail_url,
-            duration, // Save the formatted duration
+            thumbnail,
+            duration,
             tags: tags || [],
             rank: newRank,
             status: 'active'
@@ -104,20 +98,17 @@ router.post('/', async (req, res) => {
         res.status(201).json(savedItem);
     } catch (err) {
         console.error('Error adding item:', err.message);
-        if (err.response) {
-            console.error('YouTube response status:', err.response.status);
+        if (err.response && err.response.data && err.response.data.error) {
+            console.error('YouTube API Error:', err.response.data.error.message);
             res.status(400).json({
-                message: `Failed to fetch video information. The video may be unavailable or private.`
+                message: `YouTube API Error: ${err.response.data.error.message}`
             });
-        } else if (err.request) {
-            console.error('No response from YouTube');
-            res.status(500).json({ message: 'Failed to connect to YouTube. Please try again.' });
         } else {
-            console.error('Error details:', err);
-            res.status(400).json({ message: `Error adding item: ${err.message}` });
+            res.status(500).json({ message: `Error adding item: ${err.message}` });
         }
     }
 });
+
 
 // Reorder items (Drag & Drop)
 router.put('/reorder', async (req, res) => {

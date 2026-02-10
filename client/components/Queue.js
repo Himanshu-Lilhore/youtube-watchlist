@@ -99,14 +99,20 @@ export default function Queue() {
     };
 
     const updateRanks = async (reorderedItems) => {
-        setItems(reorderedItems);
-        const rankUpdates = reorderedItems.map((item, index) => ({
-            _id: item._id,
+        const itemsWithUpdatedRanks = reorderedItems.map((item, index) => ({
+            ...item,
             rank: index + 1
         }));
+
+        setItems(itemsWithUpdatedRanks);
+
+        const rankUpdates = itemsWithUpdatedRanks.map((item) => ({
+            _id: item._id,
+            rank: item.rank
+        }));
+
         try {
             await reorderItems(rankUpdates);
-            // Optionally reload to ensure sync
         } catch (error) {
             console.error("Failed to update ranks", error);
         }
@@ -200,7 +206,7 @@ export default function Queue() {
             </div>
 
             {/* Add Item Form */}
-            <AddItem onAdd={handleAdd} total={items.length}/>
+            <AddItem onAdd={handleAdd} total={items.length} />
 
             {/* Queue List */}
             <div className="space-y-4">
