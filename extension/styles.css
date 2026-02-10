@@ -1,0 +1,43 @@
+
+#yt-watchlist-add-btn {
+    border-radius: 18px;
+    padding: 0 16px;
+    height: 36px;
+    font-family: "Roboto","Arial",sans-serif;
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+    cursor: pointer;
+    background-color: rgba(0, 0, 0, 0.05);
+    border: none;
+    color: #0f0f0f;
+    transition: background-color 0.2s;
+}
+
+/* Dark mode support */
+html[dark] #yt-watchlist-add-btn {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #f1f1f1;
+}
+
+#yt-watchlist-add-btn:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+html[dark] #yt-watchlist-add-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+#yt-watchlist-add-btn.yt-watchlist-added {
+    background-color: rgba(62, 166, 255, 0.2);
+    color: #3ea6ff;
+}
+
+html[dark] #yt-watchlist-add-btn.yt-watchlist-added {
+    background-color: rgba(62, 166, 255, 0.2);
+    color: #3ea6ff;
+}
+
+#yt-watchlist-add-btn svg {
+    fill: currentColor;
+}

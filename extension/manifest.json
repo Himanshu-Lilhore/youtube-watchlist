@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Watchlist Adder",
+  "version": "1.0",
+  "description": "Add YouTube videos to your watchlist with one click.",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "http://localhost:5000/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"]
+    }
+  ],
+  "action": {
+    "default_icon": "icon.png"
+  },
+  "icons": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+  }
+}

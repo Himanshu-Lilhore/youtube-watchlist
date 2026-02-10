@@ -56,7 +56,7 @@ export function SortableItem({ id, item, onDeprioritize, onMarkWatched, availabl
         <div
             ref={setNodeRef}
             style={style}
-            className={`group relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-xl sm:rounded-2xl overflow-visible border border-slate-700/50 hover:border-blue-500/50 transition-all duration-300 ${isDragging ? 'shadow-2xl scale-105 z-50' : 'hover:shadow-xl'} ${isTagMenuOpen ? 'z-40' : ''}`}
+            className={`group relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-xl sm:rounded-2xl overflow-hidden border border-slate-700/50 hover:border-blue-500/50 transition-all duration-300 ${isDragging ? 'shadow-2xl scale-105 z-50' : 'hover:shadow-xl'} ${isTagMenuOpen ? 'z-40' : ''}`}
         >
             {/* Mobile & Desktop Layout */}
             <div className="flex flex-row items-center gap-2 p-2 sm:p-0">
@@ -76,7 +76,7 @@ export function SortableItem({ id, item, onDeprioritize, onMarkWatched, availabl
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="relative w-24 h-24 sm:w-full sm:h-48 md:w-80 md:h-44 flex-shrink-0 overflow-hidden bg-black rounded-lg sm:rounded-none"
+                    className="relative w-24 aspect-[4/3] sm:w-full sm:h-48 md:w-80 md:h-44 flex-shrink-0 overflow-hidden bg-black rounded-lg sm:rounded-none"
                 // Prevent drag handle from catching clicks on thumbnail if needed, but 'a' tag handles it
                 >
                     {item.thumbnail ? (

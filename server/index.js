@@ -13,7 +13,8 @@ const PORT = process.env.PORT || 5000;
 app.use(cors({
     origin: function (origin, callback) {
         if (!origin ||
-            origin.startsWith(process.env.FRONTEND_URL)) {
+            origin.startsWith(process.env.FRONTEND_URL) ||
+            origin === 'https://www.youtube.com') {
             callback(null, true)
         } else {
             console.log('Blocked by CORS:', origin);
