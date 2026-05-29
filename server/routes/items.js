@@ -3,10 +3,35 @@ const router = express.Router();
 const Item = require('../models/Item');
 const axios = require('axios');
 
-// Get all active items, sorted by rank
+// Get active items, sorted by rank
+// Supports optional pagination via ?page= and ?limit= query params.
+// When either param is supplied, returns { items, total, page, limit, totalPages }.
+// When neither is supplied, returns the full array (backwards compatible with reorder flow).
 router.get('/', async (req, res) => {
     try {
-        const items = await Item.find({ status: 'active' }).sort({ rank: 1 });
+        const { page, limit } = req.query;
+        const filter = { status: 'active' };
+
+        if (page !== undefined || limit !== undefined) {
+            const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+            const limitNum = Math.max(parseInt(limit, 10) || 10, 1);
+            const skip = (pageNum - 1) * limitNum;
+
+            const [items, total] = await Promise.all([
+                Item.find(filter).sort({ rank: 1 }).skip(skip).limit(limitNum),
+                Item.countDocuments(filter)
+            ]);
+
+            return res.json({
+                items,
+                total,
+                page: pageNum,
+                limit: limitNum,
+                totalPages: Math.max(Math.ceil(total / limitNum), 1)
+            });
+        }
+
+        const items = await Item.find(filter).sort({ rank: 1 });
         res.json(items);
     } catch (err) {
         res.status(500).json({ message: err.message });

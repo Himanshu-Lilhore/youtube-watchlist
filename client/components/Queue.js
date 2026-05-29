@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     arrayMove
 } from '@dnd-kit/sortable';
 import { SortableItem } from './SortableItem';
 import AddItem from './AddItem';
-import { fetchItems, addItem, reorderItems, deprioritizeItem, markAsWatched, fetchTags } from '../lib/api';
+import { fetchItems, addItem, reorderItems, deprioritizeItem, markAsWatched, fetchTags, fetchPreferences, savePreferences } from '../lib/api';
 import { Video, Settings } from 'lucide-react';
 import SettingsPanel from './SettingsPanel';
+
+const PAGE_SIZE = 10; // how many items to reveal per scroll
 
 export default function Queue() {
     const [items, setItems] = useState([]);
@@ -20,26 +22,82 @@ export default function Queue() {
     const [filters, setFilters] = useState({ duration: 'all', tags: [] });
     const [sortOrder, setSortOrder] = useState('asc');
 
+    // Infinite scroll state — how many items are currently revealed
+    const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+    const sentinelRef = useRef(null);
+
+    // Track whether server-side prefs have been loaded yet so we don't
+    // overwrite them with the initial defaults on first render.
+    const [prefsLoaded, setPrefsLoaded] = useState(false);
+
 
 
     useEffect(() => {
         loadData();
     }, []);
 
+    // Reset the visible window when filters or sort change
+    useEffect(() => {
+        setVisibleCount(PAGE_SIZE);
+    }, [filters.duration, filters.tags, sortOrder]);
+
+    // Infinite-scroll: reveal more items when the sentinel enters the viewport
+    useEffect(() => {
+        const node = sentinelRef.current;
+        if (!node) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0]?.isIntersecting) {
+                    setVisibleCount((c) => c + PAGE_SIZE);
+                }
+            },
+            { rootMargin: '200px' } // trigger a bit before the sentinel is fully visible
+        );
+
+        observer.observe(node);
+        return () => observer.disconnect();
+    }, [items, filters.duration, filters.tags, sortOrder, visibleCount]);
+
     const loadData = async () => {
         try {
-            const [itemsData, tagsData] = await Promise.all([
+            const [itemsData, tagsData, prefsData] = await Promise.all([
                 fetchItems(),
-                fetchTags()
+                fetchTags(),
+                fetchPreferences().catch((e) => {
+                    console.warn('Could not load preferences, using defaults', e);
+                    return null;
+                })
             ]);
             setItems(itemsData);
             setTags(tagsData);
+            if (prefsData) {
+                if (prefsData.filters) {
+                    setFilters({
+                        duration: prefsData.filters.duration || 'all',
+                        tags: Array.isArray(prefsData.filters.tags) ? prefsData.filters.tags : []
+                    });
+                }
+                if (prefsData.sortOrder) setSortOrder(prefsData.sortOrder);
+            }
         } catch (error) {
             console.error('Failed to load data', error);
         } finally {
+            setPrefsLoaded(true);
             setLoading(false);
         }
     };
+
+    // Persist filter/sort changes to the server (debounced) once prefs have loaded.
+    useEffect(() => {
+        if (!prefsLoaded) return;
+        const t = setTimeout(() => {
+            savePreferences({ filters, sortOrder }).catch((err) =>
+                console.warn('Failed to save preferences', err)
+            );
+        }, 400);
+        return () => clearTimeout(t);
+    }, [filters.duration, filters.tags, sortOrder, prefsLoaded]);
 
     const handleTagsChange = async () => {
         const newTags = await fetchTags();
@@ -208,53 +266,80 @@ export default function Queue() {
             {/* Add Item Form */}
             <AddItem onAdd={handleAdd} total={items.length} />
 
-            {/* Queue List */}
-            <div className="space-y-4">
-                {items.filter(item => {
-                    // Apply filters here instead of separate function to keep it simple with the new logic
-                    if (filters.duration !== 'all') {
-                        if (!item.duration) return false;
-                        const parts = item.duration.split(':').map(Number);
-                        let durationSteps = 0;
-                        if (parts.length === 3) durationSteps = parts[0] * 60 + parts[1];
-                        else durationSteps = parts[0];
+            {/* Queue List (infinite scroll) */}
+            {(() => {
+                const visibleItems = items
+                    .filter(item => {
+                        if (filters.duration !== 'all') {
+                            if (!item.duration) return false;
+                            const parts = item.duration.split(':').map(Number);
+                            let durationSteps = 0;
+                            if (parts.length === 3) durationSteps = parts[0] * 60 + parts[1];
+                            else durationSteps = parts[0];
 
-                        if (filters.duration === 'short' && durationSteps >= 5) return false;
-                        if (filters.duration === 'medium' && (durationSteps < 5 || durationSteps > 20)) return false;
-                        if (filters.duration === 'long' && durationSteps <= 20) return false;
-                    }
-                    if (filters.tags.length > 0) {
-                        if (!item.tags.some(tag => filters.tags.includes(tag))) return false;
-                    }
-                    return true;
-                }).sort((a, b) => {
-                    if (sortOrder === 'desc') return b.rank - a.rank;
-                    return a.rank - b.rank; // Default by rank
-                }).map((item, index, array) => (
-                    <SortableItem
-                        key={item._id}
-                        id={item._id}
-                        item={item}
-                        onDeprioritize={handleDeprioritize}
-                        onMarkWatched={handleMarkWatched}
-                        availableTags={tags}
-                        onItemUpdate={handleItemUpdate}
-                        // Reordering Props
-                        onMoveToTop={() => handleMoveToTop(item._id)}
-                        onMoveUp={() => handleMoveUp(item._id)}
-                        onMoveDown={() => handleMoveDown(item._id)}
-                        onMoveToBottom={() => handleMoveToBottom(item._id)}
-                        isFirst={index === 0}
-                        isLast={index === array.length - 1}
-                    />
-                ))}
-                {items.length === 0 && !loading && (
-                    <div className="text-center py-20 bg-slate-900/50 rounded-3xl border-2 border-dashed border-slate-700">
-                        <h3 className="text-xl font-bold text-slate-400 mb-2">No matches found</h3>
-                        <p className="text-slate-500">Try adjusting your filters</p>
-                    </div>
-                )}
-            </div>
+                            if (filters.duration === 'short' && durationSteps >= 5) return false;
+                            if (filters.duration === 'medium' && (durationSteps < 5 || durationSteps > 20)) return false;
+                            if (filters.duration === 'long' && durationSteps <= 20) return false;
+                        }
+                        if (filters.tags.length > 0) {
+                            if (!item.tags.some(tag => filters.tags.includes(tag))) return false;
+                        }
+                        return true;
+                    })
+                    .sort((a, b) => {
+                        if (sortOrder === 'desc') return b.rank - a.rank;
+                        return a.rank - b.rank;
+                    });
+
+                const shown = Math.min(visibleCount, visibleItems.length);
+                const pageItems = visibleItems.slice(0, shown);
+                const hasMore = shown < visibleItems.length;
+
+                return (
+                    <>
+                        <div className="space-y-4">
+                            {pageItems.map((item, index, array) => (
+                                <SortableItem
+                                    key={item._id}
+                                    id={item._id}
+                                    item={item}
+                                    onDeprioritize={handleDeprioritize}
+                                    onMarkWatched={handleMarkWatched}
+                                    availableTags={tags}
+                                    onItemUpdate={handleItemUpdate}
+                                    // Reordering Props
+                                    onMoveToTop={() => handleMoveToTop(item._id)}
+                                    onMoveUp={() => handleMoveUp(item._id)}
+                                    onMoveDown={() => handleMoveDown(item._id)}
+                                    onMoveToBottom={() => handleMoveToBottom(item._id)}
+                                    isFirst={index === 0}
+                                    isLast={index === array.length - 1 && !hasMore}
+                                />
+                            ))}
+                            {visibleItems.length === 0 && items.length > 0 && (
+                                <div className="text-center py-20 bg-slate-900/50 rounded-3xl border-2 border-dashed border-slate-700">
+                                    <h3 className="text-xl font-bold text-slate-400 mb-2">No matches found</h3>
+                                    <p className="text-slate-500">Try adjusting your filters</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Sentinel: when it scrolls into view, reveal more items */}
+                        {hasMore && (
+                            <div ref={sentinelRef} className="flex items-center justify-center py-8">
+                                <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                                <span className="ml-3 text-slate-400 text-sm">Loading more…</span>
+                            </div>
+                        )}
+
+                        {!hasMore && visibleItems.length > PAGE_SIZE && (
+                            <div className="text-center text-slate-500 text-sm py-6">
+                                You've reached the end · {visibleItems.length} items
+                            </div>
+                        )}
+                    </>
+                );
+            })()}
 
             {/* Empty State (Only if truly empty, not valid for filtered 0 state) */}
             {items.length === 0 && (

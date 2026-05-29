@@ -9,6 +9,12 @@ export const fetchItems = async () => {
     return response.data;
 };
 
+// Paginated fetch. Returns { items, total, page, limit, totalPages }.
+export const fetchItemsPaginated = async (page = 1, limit = 10) => {
+    const response = await axios.get(API_URL, { params: { page, limit } });
+    return response.data;
+};
+
 export const addItem = async (url, tags) => {
     const response = await axios.post(API_URL, { url, tags });
     return response.data;
@@ -54,5 +60,18 @@ export const deleteTag = async (id) => {
 
 export const updateTag = async (id, name) => {
     const response = await axios.patch(`${TAGS_API_URL}/${id}`, { name });
+    return response.data;
+};
+
+// Preferences APIs
+const PREFS_API_URL = process.env.NEXT_PUBLIC_API_URL + '/api/preferences';
+
+export const fetchPreferences = async () => {
+    const response = await axios.get(PREFS_API_URL);
+    return response.data; // { filters, sortOrder, updatedAt }
+};
+
+export const savePreferences = async ({ filters, sortOrder }) => {
+    const response = await axios.put(PREFS_API_URL, { filters, sortOrder });
     return response.data;
 };

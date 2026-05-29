@@ -33,9 +33,11 @@ mongoose.connect(process.env.MONGODB_URI, { family: 4 })
 // Routes
 const itemsRouter = require('./routes/items');
 const tagsRouter = require('./routes/tags');
+const preferencesRouter = require('./routes/preferences');
 
 app.use('/api/items', itemsRouter);
 app.use('/api/tags', tagsRouter);
+app.use('/api/preferences', preferencesRouter);
 
 app.get('/', (req, res) => {
     res.send('YouTube Watchlist API is running');
