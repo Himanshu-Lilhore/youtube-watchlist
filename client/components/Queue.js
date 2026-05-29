@@ -7,7 +7,7 @@ import {
 import { SortableItem } from './SortableItem';
 import AddItem from './AddItem';
 import { fetchItems, addItem, reorderItems, deprioritizeItem, markAsWatched, fetchTags, fetchPreferences, savePreferences } from '../lib/api';
-import { Video, Settings } from 'lucide-react';
+import { Video, Settings, X, Filter } from 'lucide-react';
 import SettingsPanel from './SettingsPanel';
 
 const PAGE_SIZE = 10; // how many items to reveal per scroll
@@ -265,6 +265,60 @@ export default function Queue() {
 
             {/* Add Item Form */}
             <AddItem onAdd={handleAdd} total={items.length} />
+
+            {/* Active Filters bar */}
+            {(filters.duration !== 'all' || filters.tags.length > 0 || sortOrder !== 'asc') && (
+                <div className="mb-4 flex flex-wrap items-center gap-2 bg-slate-900/40 border border-slate-800 rounded-2xl px-3 py-2">
+                    <div className="flex items-center gap-1.5 text-slate-400 text-xs font-semibold uppercase tracking-wider mr-1">
+                        <Filter className="w-3.5 h-3.5" />
+                        Filters
+                    </div>
+
+                    {filters.duration !== 'all' && (
+                        <button
+                            onClick={() => setFilters({ ...filters, duration: 'all' })}
+                            className="group flex items-center gap-1.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-200 text-xs font-medium px-2.5 py-1 rounded-full transition-colors"
+                            title="Clear duration filter"
+                        >
+                            <span className="capitalize">Duration: {filters.duration}</span>
+                            <X className="w-3 h-3 opacity-70 group-hover:opacity-100" />
+                        </button>
+                    )}
+
+                    {filters.tags.map((tag) => (
+                        <button
+                            key={tag}
+                            onClick={() => setFilters({ ...filters, tags: filters.tags.filter(t => t !== tag) })}
+                            className="group flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-200 text-xs font-medium px-2.5 py-1 rounded-full transition-colors"
+                            title={`Remove tag "${tag}"`}
+                        >
+                            <span>#{tag}</span>
+                            <X className="w-3 h-3 opacity-70 group-hover:opacity-100" />
+                        </button>
+                    ))}
+
+                    {sortOrder !== 'asc' && (
+                        <button
+                            onClick={() => setSortOrder('asc')}
+                            className="group flex items-center gap-1.5 bg-slate-700/40 hover:bg-slate-700/60 border border-slate-600/60 text-slate-200 text-xs font-medium px-2.5 py-1 rounded-full transition-colors"
+                            title="Reset sort order"
+                        >
+                            <span>Sort: reverse</span>
+                            <X className="w-3 h-3 opacity-70 group-hover:opacity-100" />
+                        </button>
+                    )}
+
+                    <button
+                        onClick={() => {
+                            setFilters({ duration: 'all', tags: [] });
+                            setSortOrder('asc');
+                        }}
+                        className="ml-auto text-xs font-semibold text-slate-400 hover:text-white px-2 py-1 rounded-md hover:bg-slate-800 transition-colors"
+                    >
+                        Clear all
+                    </button>
+                </div>
+            )}
 
             {/* Queue List (infinite scroll) */}
             {(() => {
