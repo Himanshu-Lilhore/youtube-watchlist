@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Plus, Trash2, Edit2, Check, ArrowUpDown } from 'lucide-react';
+import { X, Plus, Trash2, Edit2, Check, ArrowUpDown, ListVideo, Eye } from 'lucide-react';
 import { createTag, deleteTag, updateTag } from '../lib/api';
 
 export default function SettingsPanel({
@@ -12,7 +12,9 @@ export default function SettingsPanel({
     filters,
     setFilters,
     sortOrder,
-    setSortOrder
+    setSortOrder,
+    view,
+    setView
 }) {
     const [newTag, setNewTag] = useState('');
     const [editingTag, setEditingTag] = useState(null);
@@ -96,6 +98,22 @@ export default function SettingsPanel({
                     {/* Section: Sort & Filter */}
                     <div className="mb-10">
                         <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">View Options</h3>
+
+                        {/* View toggle: Active queue vs Watched history */}
+                        <div className="flex bg-slate-800 p-1 rounded-xl mb-4">
+                            <button
+                                onClick={() => setView && setView('active')}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all ${view === 'active' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                <ListVideo className="w-4 h-4" /> Active
+                            </button>
+                            <button
+                                onClick={() => setView && setView('watched')}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all ${view === 'watched' ? 'bg-emerald-700 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                <Eye className="w-4 h-4" /> Watched
+                            </button>
+                        </div>
 
                         {/* Sort */}
                         <div className="flex bg-slate-800 p-1 rounded-xl mb-4">

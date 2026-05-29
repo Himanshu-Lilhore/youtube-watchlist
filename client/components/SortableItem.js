@@ -2,10 +2,11 @@
 
 import React from 'react';
 
-import { CheckCircle2, ChevronsUp, ChevronUp, ChevronDown, ChevronsDown } from 'lucide-react';
+import { CheckCircle2, ChevronsUp, ChevronUp, ChevronDown, ChevronsDown, RotateCcw } from 'lucide-react';
 import { updateItemTags } from '../lib/api';
 
-export function SortableItem({ id, item, onDeprioritize, onMarkWatched, availableTags, onItemUpdate, onMoveToTop, onMoveUp, onMoveDown, onMoveToBottom, isFirst, isLast }) {
+export function SortableItem({ id, item, view = 'active', onDeprioritize, onMarkWatched, onRestore, availableTags, onItemUpdate, onMoveToTop, onMoveUp, onMoveDown, onMoveToBottom, isFirst, isLast }) {
+    const isWatchedView = view === 'watched';
 
     const [isTagMenuOpen, setIsTagMenuOpen] = React.useState(false);
 
@@ -41,41 +42,43 @@ export function SortableItem({ id, item, onDeprioritize, onMarkWatched, availabl
         <div
             className={`group relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-xl sm:rounded-2xl overflow-visible border border-slate-700/50 hover:border-blue-500/50 transition-all duration-300 hover:shadow-xl ${isTagMenuOpen ? 'z-40' : ''} flex`}
         >
-            {/* Reorder Controls - Full Height */}
-            <div className="flex flex-col self-stretch justify-between py-2 pl-1 sm:py-2 sm:px-2 items-center z-10">
-                <button
-                    onClick={onMoveToTop}
-                    disabled={isFirst}
-                    className={`p-1 rounded-md transition-colors ${isFirst ? 'text-slate-700 cursor-not-allowed' : 'text-slate-400 hover:text-blue-400 hover:bg-slate-700/50'}`}
-                    title="Move to Top"
-                >
-                    <ChevronsUp className="w-4 aspect-square" />
-                </button>
-                <button
-                    onClick={onMoveUp}
-                    disabled={isFirst}
-                    className={`p-1 rounded-md transition-colors ${isFirst ? 'text-slate-700 cursor-not-allowed' : 'text-slate-400 hover:text-blue-400 hover:bg-slate-700/50'}`}
-                    title="Move Up"
-                >
-                    <ChevronUp className="w-4 aspect-square" />
-                </button>
-                <button
-                    onClick={onMoveDown}
-                    disabled={isLast}
-                    className={`p-1 rounded-md transition-colors ${isLast ? 'text-slate-700 cursor-not-allowed' : 'text-slate-400 hover:text-orange-500 hover:bg-slate-700/50'}`}
-                    title="Move Down"
-                >
-                    <ChevronDown className="w-4 aspect-square" />
-                </button>
-                <button
-                    onClick={onMoveToBottom}
-                    disabled={isLast}
-                    className={`p-1 rounded-md transition-colors ${isLast ? 'text-slate-700 cursor-not-allowed' : 'text-slate-400 hover:text-orange-500 hover:bg-slate-700/50'}`}
-                    title="Move to Bottom"
-                >
-                    <ChevronsDown className="w-4 aspect-square" />
-                </button>
-            </div>
+            {/* Reorder Controls - hidden in watched view since order is irrelevant */}
+            {!isWatchedView && (
+                <div className="flex flex-col self-stretch justify-between py-2 pl-1 sm:py-2 sm:px-2 items-center z-10">
+                    <button
+                        onClick={onMoveToTop}
+                        disabled={isFirst}
+                        className={`p-1 rounded-md transition-colors ${isFirst ? 'text-slate-700 cursor-not-allowed' : 'text-slate-400 hover:text-blue-400 hover:bg-slate-700/50'}`}
+                        title="Move to Top"
+                    >
+                        <ChevronsUp className="w-4 aspect-square" />
+                    </button>
+                    <button
+                        onClick={onMoveUp}
+                        disabled={isFirst}
+                        className={`p-1 rounded-md transition-colors ${isFirst ? 'text-slate-700 cursor-not-allowed' : 'text-slate-400 hover:text-blue-400 hover:bg-slate-700/50'}`}
+                        title="Move Up"
+                    >
+                        <ChevronUp className="w-4 aspect-square" />
+                    </button>
+                    <button
+                        onClick={onMoveDown}
+                        disabled={isLast}
+                        className={`p-1 rounded-md transition-colors ${isLast ? 'text-slate-700 cursor-not-allowed' : 'text-slate-400 hover:text-orange-500 hover:bg-slate-700/50'}`}
+                        title="Move Down"
+                    >
+                        <ChevronDown className="w-4 aspect-square" />
+                    </button>
+                    <button
+                        onClick={onMoveToBottom}
+                        disabled={isLast}
+                        className={`p-1 rounded-md transition-colors ${isLast ? 'text-slate-700 cursor-not-allowed' : 'text-slate-400 hover:text-orange-500 hover:bg-slate-700/50'}`}
+                        title="Move to Bottom"
+                    >
+                        <ChevronsDown className="w-4 aspect-square" />
+                    </button>
+                </div>
+            )}
 
             {/* Content Wrapper */}
             <div className="flex flex-col flex-1 min-w-0">
@@ -185,25 +188,46 @@ export function SortableItem({ id, item, onDeprioritize, onMarkWatched, availabl
 
                     {/* Actions - Desktop layout */}
                     <div className="h-full hidden sm:flex items-end gap-3 pr-2 pb-2">
-                        <button
-                            onClick={() => onMarkWatched(item._id)}
-                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-lg font-medium transition-all transform hover:scale-105 shadow-lg hover:shadow-emerald-500/50"
-                        >
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span className="hidden md:inline">Watched</span>
-                        </button>
+                        {isWatchedView ? (
+                            <button
+                                onClick={() => onRestore && onRestore(item._id)}
+                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg font-medium transition-all transform hover:scale-105 shadow-lg hover:shadow-blue-500/50"
+                                title="Restore to active queue"
+                            >
+                                <RotateCcw className="w-4 h-4" />
+                                <span className="hidden md:inline">Restore</span>
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => onMarkWatched(item._id)}
+                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-lg font-medium transition-all transform hover:scale-105 shadow-lg hover:shadow-emerald-500/50"
+                            >
+                                <CheckCircle2 className="w-4 h-4" />
+                                <span className="hidden md:inline">Watched</span>
+                            </button>
+                        )}
                     </div>
                 </div>
 
                 {/* Mobile Actions: Flex Row + Labels */}
                 <div className="sm:hidden flex flex-row gap-2 p-2 pt-0 w-full">
-                    <button
-                        onClick={() => onMarkWatched(item._id)}
-                        className="flex-1 flex items-center justify-center gap-2 p-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-lg transition-all shadow-lg font-medium text-sm"
-                    >
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Watched</span>
-                    </button>
+                    {isWatchedView ? (
+                        <button
+                            onClick={() => onRestore && onRestore(item._id)}
+                            className="flex-1 flex items-center justify-center gap-2 p-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-all shadow-lg font-medium text-sm"
+                        >
+                            <RotateCcw className="w-4 h-4" />
+                            <span>Restore</span>
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => onMarkWatched(item._id)}
+                            className="flex-1 flex items-center justify-center gap-2 p-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-lg transition-all shadow-lg font-medium text-sm"
+                        >
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Watched</span>
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

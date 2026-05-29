@@ -6,8 +6,8 @@ import {
 } from '@dnd-kit/sortable';
 import { SortableItem } from './SortableItem';
 import AddItem from './AddItem';
-import { fetchItems, addItem, reorderItems, deprioritizeItem, markAsWatched, fetchTags, fetchPreferences, savePreferences } from '../lib/api';
-import { Video, Settings, X, Filter } from 'lucide-react';
+import { fetchItems, addItem, reorderItems, deprioritizeItem, markAsWatched, restoreItem, fetchTags, fetchPreferences, savePreferences } from '../lib/api';
+import { Video, Settings, X, Filter, Eye } from 'lucide-react';
 import SettingsPanel from './SettingsPanel';
 
 const PAGE_SIZE = 10; // how many items to reveal per scroll
@@ -21,6 +21,8 @@ export default function Queue() {
     // Filter & Sort State
     const [filters, setFilters] = useState({ duration: 'all', tags: [] });
     const [sortOrder, setSortOrder] = useState('asc');
+    // Which list to show: 'active' (default queue) or 'watched' (history)
+    const [view, setView] = useState('active');
 
     // Infinite scroll state — how many items are currently revealed
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -36,10 +38,10 @@ export default function Queue() {
         loadData();
     }, []);
 
-    // Reset the visible window when filters or sort change
+    // Reset the visible window when filters, sort, or view change
     useEffect(() => {
         setVisibleCount(PAGE_SIZE);
-    }, [filters.duration, filters.tags, sortOrder]);
+    }, [filters.duration, filters.tags, sortOrder, view]);
 
     // Infinite-scroll: reveal more items when the sentinel enters the viewport
     useEffect(() => {
@@ -61,14 +63,18 @@ export default function Queue() {
 
     const loadData = async () => {
         try {
-            const [itemsData, tagsData, prefsData] = await Promise.all([
-                fetchItems(),
+            // Load prefs first so we can fetch items for the correct view
+            const [tagsData, prefsData] = await Promise.all([
                 fetchTags(),
                 fetchPreferences().catch((e) => {
                     console.warn('Could not load preferences, using defaults', e);
                     return null;
                 })
             ]);
+
+            const initialView = prefsData?.view === 'watched' ? 'watched' : 'active';
+            const itemsData = await fetchItems(initialView);
+
             setItems(itemsData);
             setTags(tagsData);
             if (prefsData) {
@@ -79,6 +85,7 @@ export default function Queue() {
                     });
                 }
                 if (prefsData.sortOrder) setSortOrder(prefsData.sortOrder);
+                setView(initialView);
             }
         } catch (error) {
             console.error('Failed to load data', error);
@@ -88,16 +95,31 @@ export default function Queue() {
         }
     };
 
-    // Persist filter/sort changes to the server (debounced) once prefs have loaded.
+    // Refetch items whenever the view changes (after the initial load).
+    useEffect(() => {
+        if (!prefsLoaded) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const data = await fetchItems(view);
+                if (!cancelled) setItems(data);
+            } catch (err) {
+                console.error('Failed to refetch items for view', view, err);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [view, prefsLoaded]);
+
+    // Persist filter/sort/view changes to the server (debounced) once prefs have loaded.
     useEffect(() => {
         if (!prefsLoaded) return;
         const t = setTimeout(() => {
-            savePreferences({ filters, sortOrder }).catch((err) =>
+            savePreferences({ filters, sortOrder, view }).catch((err) =>
                 console.warn('Failed to save preferences', err)
             );
         }, 400);
         return () => clearTimeout(t);
-    }, [filters.duration, filters.tags, sortOrder, prefsLoaded]);
+    }, [filters.duration, filters.tags, sortOrder, view, prefsLoaded]);
 
     const handleTagsChange = async () => {
         const newTags = await fetchTags();
@@ -226,6 +248,16 @@ export default function Queue() {
         }
     };
 
+    const handleRestore = async (id) => {
+        try {
+            await restoreItem(id);
+            // Remove from the current (watched) list since it's no longer watched
+            setItems(prev => prev.filter(item => item._id !== id));
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
     const handleItemUpdate = (updatedItem) => {
         setItems(prev => prev.map(item => item._id === updatedItem._id ? updatedItem : item));
     };
@@ -267,12 +299,24 @@ export default function Queue() {
             <AddItem onAdd={handleAdd} total={items.length} />
 
             {/* Active Filters bar */}
-            {(filters.duration !== 'all' || filters.tags.length > 0 || sortOrder !== 'asc') && (
+            {(filters.duration !== 'all' || filters.tags.length > 0 || sortOrder !== 'asc' || view !== 'active') && (
                 <div className="mb-4 flex flex-wrap items-center gap-2 bg-slate-900/40 border border-slate-800 rounded-2xl px-3 py-2">
                     <div className="flex items-center gap-1.5 text-slate-400 text-xs font-semibold uppercase tracking-wider mr-1">
                         <Filter className="w-3.5 h-3.5" />
                         Filters
                     </div>
+
+                    {view === 'watched' && (
+                        <button
+                            onClick={() => setView('active')}
+                            className="group flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-200 text-xs font-medium px-2.5 py-1 rounded-full transition-colors"
+                            title="Back to active queue"
+                        >
+                            <Eye className="w-3 h-3" />
+                            <span>Viewing: Watched</span>
+                            <X className="w-3 h-3 opacity-70 group-hover:opacity-100" />
+                        </button>
+                    )}
 
                     {filters.duration !== 'all' && (
                         <button
@@ -312,6 +356,7 @@ export default function Queue() {
                         onClick={() => {
                             setFilters({ duration: 'all', tags: [] });
                             setSortOrder('asc');
+                            setView('active');
                         }}
                         className="ml-auto text-xs font-semibold text-slate-400 hover:text-white px-2 py-1 rounded-md hover:bg-slate-800 transition-colors"
                     >
@@ -357,8 +402,10 @@ export default function Queue() {
                                     key={item._id}
                                     id={item._id}
                                     item={item}
+                                    view={view}
                                     onDeprioritize={handleDeprioritize}
                                     onMarkWatched={handleMarkWatched}
+                                    onRestore={handleRestore}
                                     availableTags={tags}
                                     onItemUpdate={handleItemUpdate}
                                     // Reordering Props
@@ -399,8 +446,17 @@ export default function Queue() {
             {items.length === 0 && (
                 <div className="text-center py-20 bg-slate-900/50 rounded-3xl border-2 border-dashed border-slate-700">
                     <Video className="w-20 h-20 mx-auto mb-6 text-slate-600" />
-                    <h3 className="text-2xl font-bold text-slate-300 mb-2">Your queue is empty</h3>
-                    <p className="text-slate-500 text-lg">Add your first video to get started!</p>
+                    {view === 'watched' ? (
+                        <>
+                            <h3 className="text-2xl font-bold text-slate-300 mb-2">Nothing watched yet</h3>
+                            <p className="text-slate-500 text-lg">Videos you mark as watched will appear here.</p>
+                        </>
+                    ) : (
+                        <>
+                            <h3 className="text-2xl font-bold text-slate-300 mb-2">Your queue is empty</h3>
+                            <p className="text-slate-500 text-lg">Add your first video to get started!</p>
+                        </>
+                    )}
                 </div>
             )}
 
@@ -413,6 +469,8 @@ export default function Queue() {
                 setFilters={setFilters}
                 sortOrder={sortOrder}
                 setSortOrder={setSortOrder}
+                view={view}
+                setView={setView}
             />
         </div>
     );

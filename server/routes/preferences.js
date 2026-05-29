@@ -4,7 +4,8 @@ const Preference = require('../models/Preference');
 
 const DEFAULTS = {
     filters: { duration: 'all', tags: [] },
-    sortOrder: 'asc'
+    sortOrder: 'asc',
+    view: 'active'
 };
 
 // GET current preferences. Always returns a doc (creates one if missing).
@@ -17,6 +18,7 @@ router.get('/', async (req, res) => {
         res.json({
             filters: pref.filters || DEFAULTS.filters,
             sortOrder: pref.sortOrder || DEFAULTS.sortOrder,
+            view: pref.view || DEFAULTS.view,
             updatedAt: pref.updatedAt
         });
     } catch (err) {
@@ -24,9 +26,9 @@ router.get('/', async (req, res) => {
     }
 });
 
-// PUT update preferences (upsert). Accepts { filters, sortOrder }.
+// PUT update preferences (upsert). Accepts { filters, sortOrder, view }.
 router.put('/', async (req, res) => {
-    const { filters, sortOrder } = req.body || {};
+    const { filters, sortOrder, view } = req.body || {};
 
     const update = { updatedAt: new Date() };
     if (filters && typeof filters === 'object') {
@@ -40,6 +42,9 @@ router.put('/', async (req, res) => {
     if (sortOrder === 'asc' || sortOrder === 'desc') {
         update.sortOrder = sortOrder;
     }
+    if (view === 'active' || view === 'watched') {
+        update.view = view;
+    }
 
     try {
         const pref = await Preference.findOneAndUpdate(
@@ -50,6 +55,7 @@ router.put('/', async (req, res) => {
         res.json({
             filters: pref.filters,
             sortOrder: pref.sortOrder,
+            view: pref.view,
             updatedAt: pref.updatedAt
         });
     } catch (err) {

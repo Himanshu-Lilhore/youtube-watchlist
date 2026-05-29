@@ -25,6 +25,11 @@ const PreferenceSchema = new mongoose.Schema({
         enum: ['asc', 'desc'],
         default: 'asc'
     },
+    view: {
+        type: String,
+        enum: ['active', 'watched'],
+        default: 'active'
+    },
     updatedAt: {
         type: Date,
         default: Date.now

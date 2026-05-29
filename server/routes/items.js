@@ -9,8 +9,12 @@ const axios = require('axios');
 // When neither is supplied, returns the full array (backwards compatible with reorder flow).
 router.get('/', async (req, res) => {
     try {
-        const { page, limit } = req.query;
-        const filter = { status: 'active' };
+        const { page, limit, status } = req.query;
+        // status: 'active' (default), 'watched', or 'all'
+        const filter = {};
+        if (!status || status === 'active') filter.status = 'active';
+        else if (status === 'watched') filter.status = 'watched';
+        // status === 'all' -> no status filter
 
         if (page !== undefined || limit !== undefined) {
             const pageNum = Math.max(parseInt(page, 10) || 1, 1);

@@ -4,8 +4,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL + '/api/items';
 
 axios.defaults.withCredentials = true;
 
-export const fetchItems = async () => {
-    const response = await axios.get(API_URL);
+export const fetchItems = async (status = 'active') => {
+    const response = await axios.get(API_URL, { params: { status } });
     return response.data;
 };
 
@@ -32,6 +32,11 @@ export const deprioritizeItem = async (id) => {
 
 export const markAsWatched = async (id) => {
     const response = await axios.patch(`${API_URL}/${id}/status`, { status: 'watched' });
+    return response.data;
+};
+
+export const restoreItem = async (id) => {
+    const response = await axios.patch(`${API_URL}/${id}/status`, { status: 'active' });
     return response.data;
 };
 
