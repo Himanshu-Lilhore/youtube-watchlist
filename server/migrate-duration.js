@@ -1,3 +1,5 @@
+// Note: relies on each item having `videoId` set. Run migrate-video-id.js
+// first if migrating an older database that only has `url`.
 const mongoose = require('mongoose');
 const axios = require('axios');
 const Item = require('./models/Item');
@@ -23,7 +25,7 @@ async function updateDurations() {
 
         for (const item of items) {
             console.log(`Processing: ${item.title}`);
-            const videoId = extractVideoId(item.url);
+            const videoId = item.videoId;
 
             if (videoId) {
                 const duration = await fetchDuration(videoId);
@@ -46,21 +48,6 @@ async function updateDurations() {
         console.error('Migration failed:', error);
         process.exit(1);
     }
-}
-
-function extractVideoId(url) {
-    const patterns = [
-        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
-        /youtube\.com\/v\/([^&\n?#]+)/
-    ];
-
-    for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match && match[1]) {
-            return match[1];
-        }
-    }
-    return null;
 }
 
 async function fetchDuration(videoId) {

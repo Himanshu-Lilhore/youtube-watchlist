@@ -3,6 +3,44 @@ const router = express.Router();
 const Item = require('../models/Item');
 const axios = require('axios');
 
+// Extract YouTube video ID from various URL formats (shared helper)
+function extractVideoId(url) {
+    const patterns = [
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&\n?#]+)/,
+        /youtube\.com\/v\/([^&\n?#]+)/
+    ];
+
+    for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match && match[1]) {
+            return match[1];
+        }
+    }
+    return null;
+}
+
+// Check whether a video is already in the watchlist, and its status.
+// Used by the browser extension to show "In Watchlist" / "Watched" state on page load.
+router.get('/check/:videoId', async (req, res) => {
+    try {
+        const { videoId } = req.params;
+        if (!videoId) {
+            return res.status(400).json({ message: 'videoId is required' });
+        }
+
+        // Indexed lookup — no more full-collection scan.
+        const match = await Item.findOne({ videoId }, 'status').lean();
+
+        if (match) {
+            res.json({ inWatchlist: true, status: match.status, itemId: match._id });
+        } else {
+            res.json({ inWatchlist: false });
+        }
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 // Get active items, sorted by rank
 // Supports optional pagination via ?page= and ?limit= query params.
 // When either param is supplied, returns { items, total, page, limit, totalPages }.
@@ -68,22 +106,6 @@ router.post('/', async (req, res) => {
     };
 
     try {
-        // Extract YouTube video ID from various URL formats
-        const extractVideoId = (url) => {
-            const patterns = [
-                /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&\n?#]+)/,
-                /youtube\.com\/v\/([^&\n?#]+)/
-            ];
-
-            for (const pattern of patterns) {
-                const match = url.match(pattern);
-                if (match && match[1]) {
-                    return match[1];
-                }
-            }
-            return null;
-        };
-
         const videoId = extractVideoId(url);
         if (!videoId) {
             return res.status(400).json({ message: 'Invalid YouTube URL format.' });
@@ -113,7 +135,7 @@ router.post('/', async (req, res) => {
         const newRank = lastItem && lastItem.rank ? lastItem.rank + 1 : 1;
 
         const newItem = new Item({
-            url,
+            videoId,
             title,
             thumbnail,
             duration,

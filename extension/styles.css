@@ -38,6 +38,34 @@ html[dark] #yt-watchlist-add-btn.yt-watchlist-added {
     color: #3ea6ff;
 }
 
+/* Already in watchlist (not yet watched) */
+#yt-watchlist-add-btn.yt-watchlist-in-list {
+    background-color: rgba(62, 166, 255, 0.2);
+    color: #3ea6ff;
+    cursor: default;
+}
+
+html[dark] #yt-watchlist-add-btn.yt-watchlist-in-list {
+    background-color: rgba(62, 166, 255, 0.2);
+    color: #3ea6ff;
+}
+
+/* Already watched */
+#yt-watchlist-add-btn.yt-watchlist-watched {
+    background-color: rgba(76, 175, 80, 0.15);
+    color: #2e7d32;
+    cursor: default;
+}
+
+html[dark] #yt-watchlist-add-btn.yt-watchlist-watched {
+    background-color: rgba(76, 175, 80, 0.2);
+    color: #6fcf73;
+}
+
+#yt-watchlist-add-btn:disabled {
+    opacity: 1;
+}
+
 #yt-watchlist-add-btn svg {
     fill: currentColor;
 }
